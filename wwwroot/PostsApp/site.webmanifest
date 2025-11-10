@@ -1,0 +1,16 @@
+{
+    "name": "Fil de nouvelles",
+    "short_name": "News",
+    "icons": [
+        {
+            "src": "news-icon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any"
+        }
+    ],
+    "theme_color": "#ffffff",
+    "background_color": "#ffffff",
+    "display": "standalone"
+}
+
