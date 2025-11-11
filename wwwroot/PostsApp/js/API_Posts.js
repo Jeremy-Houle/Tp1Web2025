@@ -1,21 +1,38 @@
 const API_URL = "http://localhost:5000/api/Posts";
 let currentHttpError = "";
+let currentETag = "";
 
 function API_getcurrentHttpError() {
     return currentHttpError;
 }
 
-function API_GetPosts() {
+function API_getCurrentETag() {
+    return currentETag;
+}
+
+function API_GetPosts(limit = null, offset = null) {
     return new Promise(resolve => {
+        let url = API_URL;
+        // Ajouter les paramètres de pagination si fournis
+        if (limit !== null && offset !== null) {
+            url += `?limit=${limit}&offset=${offset}`;
+        }
+        
         $.ajax({
-            url: API_URL,
+            url: url,
             headers: {
                 'Cache-Control': 'no-cache, no-store, must-revalidate',
                 'Pragma': 'no-cache',
                 'Expires': '0'
             },
-            success: posts => { 
+            success: (posts, textStatus, xhr) => { 
                 currentHttpError = ""; 
+                // Récupérer l'ETag depuis les headers de la réponse
+                const etag = xhr.getResponseHeader('ETag');
+                if (etag) {
+                    currentETag = etag;
+                    console.log('API_GetPosts - ETag reçu:', currentETag);
+                }
                 resolve(posts); 
             },
             error: (xhr) => { 
@@ -27,10 +44,45 @@ function API_GetPosts() {
     });
 }
 
-function API_GetPost(postId) {
+// Récupérer l'ETag via une requête HEAD
+function API_GetETag() {
     return new Promise(resolve => {
         $.ajax({
-            url: API_URL + "/" + postId,
+            url: API_URL,
+            type: 'HEAD',
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            },
+            complete: (xhr) => {
+                const etag = xhr.getResponseHeader('ETag');
+                if (etag) {
+                    currentETag = etag;
+                    console.log('API_GetETag - ETag reçu:', currentETag);
+                }
+                resolve(etag);
+            },
+            error: (xhr) => {
+                console.error('API_GetETag - Erreur:', xhr);
+                resolve(null);
+            }
+        });
+    });
+}
+
+function API_GetPost(postId) {
+    return new Promise(resolve => {
+        // S'assurer que l'ID est bien formaté
+        const formattedId = String(postId).trim();
+        const url = API_URL + "/" + encodeURIComponent(formattedId);
+        
+        console.log('API_GetPost - URL:', url);
+        console.log('API_GetPost - PostId demandé:', formattedId);
+        console.log('API_GetPost - Type de PostId:', typeof formattedId);
+        
+        $.ajax({
+            url: url,
             headers: {
                 'Cache-Control': 'no-cache, no-store, must-revalidate',
                 'Pragma': 'no-cache',
@@ -38,13 +90,19 @@ function API_GetPost(postId) {
             },
             success: post => { 
                 currentHttpError = ""; 
+                console.log('API_GetPost - Post récupéré:', post ? post.Id : 'null');
                 resolve(post); 
             },
             error: (xhr) => { 
                 console.error('API_GetPost - Erreur:', xhr);
                 console.error('API_GetPost - Status:', xhr.status);
-                console.error('API_GetPost - PostId demandé:', postId);
-                currentHttpError = xhr.responseJSON?.error_description || "Erreur lors du chargement du post";
+                console.error('API_GetPost - PostId demandé:', formattedId);
+                console.error('API_GetPost - URL appelée:', url);
+                if (xhr.status === 404) {
+                    currentHttpError = "Le post avec l'ID [" + formattedId + "] n'existe pas (Status: 404)";
+                } else {
+                    currentHttpError = xhr.responseJSON?.error_description || "Erreur lors du chargement du post";
+                }
                 resolve(null); 
             }
         });
@@ -53,27 +111,54 @@ function API_GetPost(postId) {
 
 function API_SavePost(post, create) {
     return new Promise(resolve => {
-        const url = create ? API_URL : API_URL + "/" + post.Id;
+        // S'assurer que l'ID est valide pour les modifications
+        if (!create) {
+            if (!post.Id || post.Id === '' || post.Id === 'undefined') {
+                console.error('API_SavePost - ID invalide pour modification:', post.Id);
+                currentHttpError = "Erreur: ID du post invalide pour la modification";
+                resolve(null);
+                return;
+            }
+        }
+        
+        const url = create ? API_URL : API_URL + "/" + encodeURIComponent(String(post.Id).trim());
         console.log('API_SavePost - URL:', url);
         console.log('API_SavePost - Method:', create ? 'POST' : 'PUT');
         console.log('API_SavePost - Post ID:', post.Id);
         console.log('API_SavePost - Create:', create);
+        console.log('API_SavePost - Post complet:', {
+            Id: post.Id,
+            Title: post.Title,
+            Category: post.Category,
+            Creation: post.Creation
+        });
         
         $.ajax({
             url: url,
             type: create ? "POST" : "PUT",
             contentType: 'application/json',
             data: JSON.stringify(post),
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            },
             success: (data) => { 
                 currentHttpError = ""; 
+                console.log('API_SavePost - Succès, post retourné:', data);
                 resolve(data); 
             },
             error: (xhr) => {
-                console.error('Erreur API:', xhr);
-                console.error('Status:', xhr.status);
-                console.error('Response:', xhr.responseText);
-                console.error('URL appelée:', url);
-                if (xhr.responseJSON) {
+                console.error('API_SavePost - Erreur API:', xhr);
+                console.error('API_SavePost - Status:', xhr.status);
+                console.error('API_SavePost - Response:', xhr.responseText);
+                console.error('API_SavePost - URL appelée:', url);
+                console.error('API_SavePost - Post ID utilisé:', post.Id);
+                console.error('API_SavePost - Type de post ID:', typeof post.Id);
+                
+                if (xhr.status === 404) {
+                    currentHttpError = "Erreur: Le post avec l'ID [" + post.Id + "] n'existe pas (Status: 404). Veuillez recharger la page.";
+                } else if (xhr.responseJSON) {
                     currentHttpError = xhr.responseJSON.error_description || 
                                      xhr.responseJSON.message || 
                                      JSON.stringify(xhr.responseJSON);

@@ -10,6 +10,8 @@
 // Lionel-Groulx College
 // 2025
 /////////////////////////////////////////////////////////////////////
+import CachedRequestsManager from '../cachedRequestsManager.js';
+
 export default class Controller {
     constructor(HttpContext, repository = null) {
         // Prevent Controller class to be instanciated directly
@@ -58,6 +60,10 @@ export default class Controller {
         if (this.HttpContext.path.id !== '') {
             data = this.repository.update(this.HttpContext.path.id, data);
             if (this.repository.model.state.isValid) {
+                // Invalider le cache des requêtes GET après une modification
+                // pour s'assurer que les prochaines requêtes obtiennent les données à jour
+                const modelName = this.repository.model.getClassName();
+                CachedRequestsManager.clear(modelName);
                 this.HttpContext.response.accepted(data);
             } else {
                 if (this.repository.model.state.notFound) {

@@ -457,3 +457,21 @@ body {
     }
 }
 
+/* Indicateur de chargement pour la pagination */
+.loading-more-container {
+    display: none;
+    text-align: center;
+    padding: 20px;
+}
+
+.loading-more-spinner {
+    font-size: 24px;
+    color: #007bff;
+}
+
+.loading-more-text {
+    margin-top: 10px;
+    color: #666;
+    font-size: 14px;
+}
+
