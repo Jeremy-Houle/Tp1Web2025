@@ -178,6 +178,11 @@ $(document).ready(function () {
         $('#mainSearchInput').val('');
         showListView(); // Affiche tous les posts sans filtre
     });
+    
+    $('#menuBtn').on('click', function(e){
+        showCategoryMenu();
+        e.stopPropagation();
+    });
 });
 
 // Afficher la vue liste
