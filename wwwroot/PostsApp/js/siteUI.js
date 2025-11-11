@@ -161,28 +161,23 @@ $(document).ready(function () {
     // Drag and Drop pour Modification
     setupDragAndDrop('editImagePlaceholder', 'editImagePreview', 'editImage');
     
-    $('#searchBtn').off('click').on('click', function() {
-        $('#searchBarContainer').slideDown(180);
-        $('#mainSearchInput').focus();
-    });
+
     
+
     $('#mainSearchBtn').on('click', function() {
         triggerMainSearch();
     });
     $('#mainSearchInput').on('keypress', function(e) {
         if (e.which === 13) triggerMainSearch();
     });
-    
+
     $('#closeSearchBtn').on('click', function() {
         $('#searchBarContainer').slideUp(180);
         $('#mainSearchInput').val('');
+        currentSearchWords = [];
         showListView(); // Affiche tous les posts sans filtre
     });
-    
-    $('#menuBtn').on('click', function(e){
-        showCategoryMenu();
-        e.stopPropagation();
-    });
+
 });
 
 // Afficher la vue liste
@@ -1278,22 +1273,36 @@ function showSearchForm() {
     });
 }
 
-// Remplace le click handler existant :
-$('#searchBtn').off('click').on('click', function() {
-    $('#searchBarContainer').slideDown(180);
-    $('#mainSearchInput').focus();
-});
+
 $('#closeSearchBtn').on('click', function() {
     $('#searchBarContainer').slideUp(180);
     $('#mainSearchInput').val('');
     showListView();
 });
 
+let currentSearchWords = []; 
+
+$('#searchBtn').off('click').on('click', function() {
+    if ($('#searchBarContainer').is(':visible')) {
+        // Barre ouverte : la fermer mais garder le filtre actif
+        $('#searchBarContainer').slideUp(180);
+        $('#mainSearchInput').blur();
+        // NE PAS appeler showListView() ici
+    } else {
+        // Barre fermée : l'ouvrir et remettre les mots recherchés si besoin
+        $('#searchBarContainer').slideDown(180);
+        $('#mainSearchInput').focus();
+        if (currentSearchWords.length > 0) {
+            $('#mainSearchInput').val(currentSearchWords.join(' '));
+        }
+    }
+});
+
 function triggerMainSearch() {
     const search = $('#mainSearchInput').val();
     if (!search || !search.trim()) return;
 
-    const words = search.trim().toLowerCase().split(/\s+/);
+    currentSearchWords = search.trim().toLowerCase().split(/\s+/);
 
     function highlightWords(text, words) {
         if (!text) return '';
@@ -1309,14 +1318,14 @@ function triggerMainSearch() {
 
     const filtered = posts.filter(post => {
         const content = ((post.Title || '') + ' ' + (post.Text || '')).toLowerCase();
-        return words.every(word => content.includes(word));
+        return currentSearchWords.every(word => content.includes(word));
     });
 
     $('#postsContainer').empty();
     if (filtered.length > 0) {
         filtered.forEach(post => {
-            const highlightedTitle = highlightWords(escapeHtml(post.Title || ''), words);
-            const highlightedText = highlightWords(escapeHtml(post.Text || ''), words);
+            const highlightedTitle = highlightWords(escapeHtml(post.Title || ''), currentSearchWords);
+            const highlightedText = highlightWords(escapeHtml(post.Text || ''), currentSearchWords);
             const postHtml = `
                 <div class="post-article" data-post-id="${escapeHtml(post.Id)}">
                     <div class="post-category">${escapeHtml(post.Category || 'GÉNÉRAL')}</div>
