@@ -21,6 +21,11 @@
             </div>
             <div class="header-right">
                 <i class="header-icon fa fa-search" id="searchBtn" title="Rechercher"></i>
+                <div id="searchBarContainer" style="background:#fff;border-bottom:1px solid #e0e0e0;padding:12px 16px;display:none;align-items:center;position:absolute;top:48px;right:16px;box-shadow:0 2px 8px rgba(0,0,0,.12);border-radius:8px;z-index:200;">
+                    <input type="text" id="mainSearchInput" class="form-control" placeholder="Rechercher des mots..." style="max-width:220px;flex:1;">
+                    <button id="mainSearchBtn" class="form-action-btn save-btn" style="margin-left:8px;">Rechercher</button>
+                    <button id="closeSearchBtn" class="form-action-btn" style="margin-left:8px;font-size:18px;" title="Fermer la recherche">&times;</button>
+                </div>
                 <i class="header-icon fa fa-plus" id="addBtn" title="Ajouter"></i>
                 <i class="header-icon fa fa-ellipsis-vertical" id="menuBtn" title="Menu"></i>
             </div>
@@ -127,6 +132,7 @@
                     <!-- Le contenu du post sera inséré ici -->
                 </div>
             </div>
+
         </div>
     </div>
     <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>

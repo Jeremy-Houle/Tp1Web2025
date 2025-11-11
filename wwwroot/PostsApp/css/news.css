@@ -474,4 +474,14 @@ body {
     color: #666;
     font-size: 14px;
 }
-
+.highlight-search {
+    background: yellow;
+    color: #222;
+    padding: 0 2px;
+    border-radius: 2px;
+}
+#searchBarContainer {
+    min-width: 260px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.12);
+    border-radius: 8px;
+}

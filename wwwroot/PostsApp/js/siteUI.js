@@ -161,14 +161,22 @@ $(document).ready(function () {
     // Drag and Drop pour Modification
     setupDragAndDrop('editImagePlaceholder', 'editImagePreview', 'editImage');
     
-    $('#searchBtn').click(function() {
-        // TODO: Implémenter la recherche
-        alert('Fonctionnalité de recherche à venir');
+    $('#searchBtn').off('click').on('click', function() {
+        $('#searchBarContainer').slideDown(180);
+        $('#mainSearchInput').focus();
     });
     
-    $('#menuBtn').click(function() {
-        // TODO: Implémenter le menu
-        alert('Menu à venir');
+    $('#mainSearchBtn').on('click', function() {
+        triggerMainSearch();
+    });
+    $('#mainSearchInput').on('keypress', function(e) {
+        if (e.which === 13) triggerMainSearch();
+    });
+    
+    $('#closeSearchBtn').on('click', function() {
+        $('#searchBarContainer').slideUp(180);
+        $('#mainSearchInput').val('');
+        showListView(); // Affiche tous les posts sans filtre
     });
 });
 
@@ -1143,4 +1151,184 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+// --- Menu Catégories ---
+
+// Extraire toutes les catégories uniques des posts
+function getAllCategories() {
+    const cats = posts.map(p => p.Category && p.Category.trim() ? p.Category.trim() : 'GÉNÉRAL');
+    return Array.from(new Set(cats));
+}
+
+// Créer le menu catégories si pas déjà présent
+function createCategoryMenu() {
+    if ($('#categoryMenu').length === 0) {
+        $('body').append(`
+            <div id="categoryMenu" style="position:absolute;display:none;z-index:3000;background:#fff;border:1px solid #ccc;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.15);min-width:180px;padding:8px;">
+            </div>
+        `);
+    }
+}
+
+// Afficher le menu catégories à côté du bouton
+function showCategoryMenu() {
+    createCategoryMenu();
+    const categories = getAllCategories();
+    let html = `<div style="font-weight:bold;margin-bottom:6px;">Catégories</div>`;
+    html += `<div class="cat-item" data-cat="TOUT" style="padding:6px 10px;cursor:pointer;border-radius:4px;">Tout afficher</div>`;
+    categories.forEach(cat => {
+        html += `<div class="cat-item" data-cat="${escapeHtml(cat)}" style="padding:6px 10px;cursor:pointer;border-radius:4px;">${escapeHtml(cat)}</div>`;
+    });
+    $('#categoryMenu').html(html);
+
+    // Positionner le menu sous le bouton
+    const btn = $('#menuBtn')[0];
+    const rect = btn.getBoundingClientRect();
+    $('#categoryMenu').css({
+        left: rect.left + window.scrollX,
+        top: rect.bottom + window.scrollY + 4
+    }).fadeIn(120);
+}
+
+// Fermer le menu si clic ailleurs
+$(document).on('mousedown', function(e){
+    if ($('#categoryMenu').is(':visible') && !$(e.target).closest('#categoryMenu, #menuBtn').length){
+        $('#categoryMenu').fadeOut(100);
+    }
+});
+
+
+
+// Filtrer les posts selon la catégorie choisie
+$(document).on('click', '.cat-item', function(){
+    const cat = $(this).data('cat');
+    $('#categoryMenu').fadeOut(100);
+    $('#postsContainer').empty();
+    if (cat === 'TOUT') {
+        posts.forEach(renderPost);
+    } else {
+        posts.filter(p => (p.Category && p.Category.trim()) ? p.Category.trim() === cat : 'GÉNÉRAL' === cat)
+             .forEach(renderPost);
+    }
+});
+
+function showSearchForm() {
+    $('#postsContainer').empty().append(`
+        <form id="searchForm" style="padding:16px 8px; text-align:center;">
+            <input type="text" id="searchInput" class="form-control" placeholder="Rechercher des mots..." style="max-width:320px;display:inline-block;" autofocus>
+            <button type="submit" class="form-action-btn save-btn" style="margin-left:8px;">Rechercher</button>
+        </form>
+        <div id="searchResults"></div>
+    `);
+    $('#searchInput').focus();
+
+    $('#searchForm').on('submit', function(e) {
+        e.preventDefault();
+        const search = $('#searchInput').val();
+        if (!search || !search.trim()) return;
+
+        const words = search.trim().toLowerCase().split(/\s+/);
+
+        function highlightWords(text, words) {
+            if (!text) return '';
+            let result = text;
+            words.forEach(word => {
+                if (word.length > 0) {
+                    const regex = new RegExp(`(${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+                    result = result.replace(regex, '<span class="highlight-search">$1</span>');
+                }
+            });
+            return result;
+        }
+
+        const filtered = posts.filter(post => {
+            const content = ((post.Title || '') + ' ' + (post.Text || '')).toLowerCase();
+            return words.every(word => content.includes(word));
+        });
+
+        $('#searchResults').empty();
+        if (filtered.length > 0) {
+            filtered.forEach(post => {
+                const highlightedTitle = highlightWords(escapeHtml(post.Title || ''), words);
+                const highlightedText = highlightWords(escapeHtml(post.Text || ''), words);
+                const postHtml = `
+                    <div class="post-article" data-post-id="${escapeHtml(post.Id)}">
+                        <div class="post-category">${escapeHtml(post.Category || 'GÉNÉRAL')}</div>
+                        <h2 class="post-title">${highlightedTitle}</h2>
+                        ${post.Image ? `<img src="${post.Image}" alt="${escapeHtml(post.Title)}" class="post-image" onerror="this.style.display='none'">` : ''}
+                        <div class="post-date">${post.Creation ? convertToFrenchDate(post.Creation) : ''}</div>
+                        <div class="post-text">${highlightedText}</div>
+                    </div>
+                `;
+                $('#searchResults').append(postHtml);
+            });
+        } else {
+            $('#searchResults').append(`
+                <div class="empty-state">
+                    <i class="fa fa-search"></i>
+                    <p>Aucun article ne correspond à votre recherche.</p>
+                </div>
+            `);
+        }
+    });
+}
+
+// Remplace le click handler existant :
+$('#searchBtn').off('click').on('click', function() {
+    $('#searchBarContainer').slideDown(180);
+    $('#mainSearchInput').focus();
+});
+$('#closeSearchBtn').on('click', function() {
+    $('#searchBarContainer').slideUp(180);
+    $('#mainSearchInput').val('');
+    showListView();
+});
+
+function triggerMainSearch() {
+    const search = $('#mainSearchInput').val();
+    if (!search || !search.trim()) return;
+
+    const words = search.trim().toLowerCase().split(/\s+/);
+
+    function highlightWords(text, words) {
+        if (!text) return '';
+        let result = text;
+        words.forEach(word => {
+            if (word.length > 0) {
+                const regex = new RegExp(`(${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+                result = result.replace(regex, '<span class="highlight-search">$1</span>');
+            }
+        });
+        return result;
+    }
+
+    const filtered = posts.filter(post => {
+        const content = ((post.Title || '') + ' ' + (post.Text || '')).toLowerCase();
+        return words.every(word => content.includes(word));
+    });
+
+    $('#postsContainer').empty();
+    if (filtered.length > 0) {
+        filtered.forEach(post => {
+            const highlightedTitle = highlightWords(escapeHtml(post.Title || ''), words);
+            const highlightedText = highlightWords(escapeHtml(post.Text || ''), words);
+            const postHtml = `
+                <div class="post-article" data-post-id="${escapeHtml(post.Id)}">
+                    <div class="post-category">${escapeHtml(post.Category || 'GÉNÉRAL')}</div>
+                    <h2 class="post-title">${highlightedTitle}</h2>
+                    ${post.Image ? `<img src="${post.Image}" alt="${escapeHtml(post.Title)}" class="post-image" onerror="this.style.display='none'">` : ''}
+                    <div class="post-date">${post.Creation ? convertToFrenchDate(post.Creation) : ''}</div>
+                    <div class="post-text">${highlightedText}</div>
+                </div>
+            `;
+            $('#postsContainer').append(postHtml);
+        });
+    } else {
+        $('#postsContainer').append(`
+            <div class="empty-state">
+                <i class="fa fa-search"></i>
+                <p>Aucun article ne correspond à votre recherche.</p>
+            </div>
+        `);
+    }
 }
