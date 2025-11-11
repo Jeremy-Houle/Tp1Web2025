@@ -7,4 +7,4 @@ import RouteRegister from './router.js';
 RouteRegister.add('GET', 'Bookmarks', 'list');
 
 let server = new APIServer();
-server.start();
+server.start(); //oui
