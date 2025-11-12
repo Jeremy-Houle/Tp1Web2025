@@ -1,4 +1,5 @@
 let posts = [];
+let allPostsForCategories = []; // Tous les posts pour extraire les catégories
 let currentView = 'list'; // 'list', 'add', 'edit', 'delete'
 let periodicRefreshInterval = null; // Intervalle pour la mise à jour périodique
 
@@ -12,6 +13,9 @@ let paginationManager = {
 };
 
 $(document).ready(function () {
+    // Charger tous les posts une fois pour extraire les catégories
+    loadAllPostsForCategories();
+    
     loadPosts(true); // Charger la première page
     
     // Démarrer la mise à jour périodique avec ETag
@@ -171,11 +175,28 @@ $(document).ready(function () {
         if (e.which === 13) triggerMainSearch();
     });
 
-    $('#closeSearchBtn').on('click', function() {
-        $('#searchBarContainer').slideUp(180);
-        $('#mainSearchInput').val('');
-        currentSearchWords = [];
-        showListView(); // Affiche tous les posts sans filtre
+    // Le gestionnaire closeSearchBtn est défini plus bas dans le fichier
+    
+    // Bouton Menu (3 points) - Afficher le menu de catégories
+    $('#menuBtn').click(function(e) {
+        e.stopPropagation();
+        if ($('#categoryMenu').is(':visible')) {
+            $('#categoryMenu').fadeOut(100);
+        } else {
+            showCategoryMenu();
+        }
+    });
+    
+    // Fermer la modale À propos
+    $('#aboutCloseBtn').click(function() {
+        hideAboutModal();
+    });
+    
+    // Fermer la modale en cliquant en dehors
+    $('#aboutModal').click(function(e) {
+        if ($(e.target).is('#aboutModal')) {
+            hideAboutModal();
+        }
     });
 
 });
@@ -190,8 +211,17 @@ function showListView() {
     $('#deleteView').hide();
     $('#loadingContainer').hide();
     $('#loadingMoreContainer').hide();
-    loadPosts(true); // Réinitialiser la pagination
-    setupInfiniteScroll(); // Configurer le défilement infini
+    
+    // Si une recherche est active, réappliquer le filtre avec surlignage
+    if (currentSearchWords && currentSearchWords.length > 0) {
+        applySearchFilter();
+    } else if (selectedCategory && selectedCategory !== 'TOUT') {
+        // Si une catégorie est sélectionnée, appliquer le filtre de catégorie
+        filterPostsByCategory(selectedCategory);
+    } else {
+        loadPosts(true); // Réinitialiser la pagination
+        setupInfiniteScroll(); // Configurer le défilement infini
+    }
 }
 
 // Démarrer la mise à jour périodique avec ETag
@@ -1004,7 +1034,7 @@ async function loadPosts(reset = false) {
         await new Promise(resolve => setTimeout(resolve, 500));
     }
     
-    const newPosts = await API_GetPosts(paginationManager.limit, paginationManager.offset);
+    const newPosts = await API_GetPosts(paginationManager.limit, paginationManager.offset, null);
     console.log('🔵 loadPosts - Posts récupérés:', newPosts ? newPosts.length : 0, 'posts');
     console.log('🔵 loadPosts - Requête API: limit=', paginationManager.limit, ', offset=', paginationManager.offset);
     console.log('🔵 loadPosts - Total de posts dans la liste avant ajout:', posts.length);
@@ -1015,15 +1045,22 @@ async function loadPosts(reset = false) {
     $('#loadingMoreContainer').hide();
     
     if (newPosts && newPosts.length > 0) {
-        // Trier les posts par date de création (du plus récent au plus ancien)
+        // Le backend trie déjà par date décroissante, mais on s'assure du tri côté client aussi
         newPosts.sort((a, b) => {
             const dateA = a.Creation || 0;
             const dateB = b.Creation || 0;
-            return dateB - dateA; // Ordre décroissant
+            return dateB - dateA; // Ordre décroissant (du plus récent au plus ancien)
         });
         
         // Ajouter les nouveaux posts à la liste existante
         posts = posts.concat(newPosts);
+        
+        // Trier l'ensemble complet des posts pour garantir l'ordre chronologique décroissant
+        posts.sort((a, b) => {
+            const dateA = a.Creation || 0;
+            const dateB = b.Creation || 0;
+            return dateB - dateA; // Ordre décroissant
+        });
         
         console.log('✅ loadPosts - Affichage de', newPosts.length, 'nouveaux posts');
         console.log('✅ loadPosts - Total de posts affichés:', posts.length);
@@ -1065,8 +1102,22 @@ async function loadPosts(reset = false) {
     console.log('✅ loadPosts - Chargement terminé, isLoading = false');
 }
 
+// Fonction helper pour surligner les mots recherchés
+function highlightWords(text, words) {
+    if (!text || !words || words.length === 0) return text;
+    let result = text;
+    words.forEach(word => {
+        if (word.length > 0) {
+            const regex = new RegExp(`(${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+            result = result.replace(regex, '<span class="highlight-search">$1</span>');
+        }
+    });
+    return result;
+}
+
 function renderPost(post) {
     const postText = escapeHtml(post.Text || '');
+    const postTitle = escapeHtml(post.Title || 'Sans titre');
     const textLength = post.Text ? post.Text.length : 0;
     // Tronquer si plus de 200 caractères (environ 3 lignes)
     const shouldTruncate = textLength > 200;
@@ -1084,6 +1135,14 @@ function renderPost(post) {
     // Logger pour vérification
     console.log('renderPost - Affichage du post avec ID:', postId, 'Titre:', post.Title);
     
+    // Surligner les mots recherchés si une recherche est active
+    let displayedTitle = postTitle;
+    let displayedText = postText;
+    if (currentSearchWords && currentSearchWords.length > 0) {
+        displayedTitle = highlightWords(postTitle, currentSearchWords);
+        displayedText = highlightWords(postText, currentSearchWords);
+    }
+    
     const postHtml = `
         <div class="post-article" data-post-id="${escapedPostId}">
             <div class="post-actions">
@@ -1091,10 +1150,10 @@ function renderPost(post) {
                 <i class="fa fa-trash post-action-btn delete-btn" data-post-id="${escapedPostId}" title="Supprimer"></i>
             </div>
             <div class="post-category">${escapeHtml(post.Category || 'GÉNÉRAL')}</div>
-            <h2 class="post-title">${escapeHtml(post.Title || 'Sans titre')}</h2>
+            <h2 class="post-title">${displayedTitle}</h2>
             ${post.Image ? `<img src="${post.Image}" alt="${escapeHtml(post.Title)}" class="post-image" onerror="this.style.display='none'">` : ''}
             <div class="post-date">${post.Creation ? convertToFrenchDate(post.Creation) : ''}</div>
-            <div class="post-text ${shouldTruncate ? 'hideExtra' : ''}" data-post-id="${escapedPostId}">${postText}</div>
+            <div class="post-text ${shouldTruncate ? 'hideExtra' : ''}" data-post-id="${escapedPostId}">${displayedText}</div>
             ${shouldTruncate ? `
             <div class="post-read-more" data-post-id="${escapedPostId}">
                 <i class="fa fa-chevron-down"></i>
@@ -1156,15 +1215,20 @@ function escapeHtml(text) {
 
 // Extraire toutes les catégories uniques des posts
 function getAllCategories() {
-    const cats = posts.map(p => p.Category && p.Category.trim() ? p.Category.trim() : 'GÉNÉRAL');
-    return Array.from(new Set(cats));
+    // Utiliser allPostsForCategories pour avoir toutes les catégories, même si on a filtré
+    const sourcePosts = allPostsForCategories.length > 0 ? allPostsForCategories : posts;
+    const cats = sourcePosts.map(p => p.Category && p.Category.trim() ? p.Category.trim() : 'GÉNÉRAL');
+    return Array.from(new Set(cats)).sort(); // Trier les catégories par ordre alphabétique
 }
+
+// Variable pour suivre la catégorie sélectionnée
+let selectedCategory = 'TOUT';
 
 // Créer le menu catégories si pas déjà présent
 function createCategoryMenu() {
     if ($('#categoryMenu').length === 0) {
         $('body').append(`
-            <div id="categoryMenu" style="position:absolute;display:none;z-index:3000;background:#fff;border:1px solid #ccc;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.15);min-width:180px;padding:8px;">
+            <div id="categoryMenu" class="category-menu">
             </div>
         `);
     }
@@ -1174,18 +1238,44 @@ function createCategoryMenu() {
 function showCategoryMenu() {
     createCategoryMenu();
     const categories = getAllCategories();
-    let html = `<div style="font-weight:bold;margin-bottom:6px;">Catégories</div>`;
-    html += `<div class="cat-item" data-cat="TOUT" style="padding:6px 10px;cursor:pointer;border-radius:4px;">Tout afficher</div>`;
+    
+    let html = '';
+    
+    // Option "Toutes les catégories" avec coche si sélectionnée
+    const allSelected = selectedCategory === 'TOUT' ? 'selected' : '';
+    html += `<div class="cat-item ${allSelected}" data-cat="TOUT">
+        ${selectedCategory === 'TOUT' ? '<i class="fa fa-check cat-check"></i>' : '<span class="cat-check-placeholder"></span>'}
+        <span class="cat-label">Toutes les catégories</span>
+    </div>`;
+    
+    // Séparateur
+    html += `<div class="cat-separator"></div>`;
+    
+    // Les catégories
     categories.forEach(cat => {
-        html += `<div class="cat-item" data-cat="${escapeHtml(cat)}" style="padding:6px 10px;cursor:pointer;border-radius:4px;">${escapeHtml(cat)}</div>`;
+        const isSelected = selectedCategory === cat;
+        html += `<div class="cat-item ${isSelected ? 'selected' : ''}" data-cat="${escapeHtml(cat)}">
+            ${isSelected ? '<i class="fa fa-check cat-check"></i>' : '<span class="cat-check-placeholder"></span>'}
+            <span class="cat-label">${escapeHtml(cat)}</span>
+        </div>`;
     });
+    
+    // Séparateur avant "À propos"
+    html += `<div class="cat-separator"></div>`;
+    
+    // Option "À propos..."
+    html += `<div class="cat-item cat-about" data-cat="ABOUT">
+        <i class="fa fa-circle-info cat-info"></i>
+        <span class="cat-label">À propos...</span>
+    </div>`;
+    
     $('#categoryMenu').html(html);
 
     // Positionner le menu sous le bouton
     const btn = $('#menuBtn')[0];
     const rect = btn.getBoundingClientRect();
     $('#categoryMenu').css({
-        left: rect.left + window.scrollX,
+        left: rect.right - 200 + window.scrollX, // Aligner à droite du bouton
         top: rect.bottom + window.scrollY + 4
     }).fadeIn(120);
 }
@@ -1200,17 +1290,110 @@ $(document).on('mousedown', function(e){
 
 
 // Filtrer les posts selon la catégorie choisie
-$(document).on('click', '.cat-item', function(){
+$(document).on('click', '.cat-item', async function(){
     const cat = $(this).data('cat');
-    $('#categoryMenu').fadeOut(100);
-    $('#postsContainer').empty();
-    if (cat === 'TOUT') {
-        posts.forEach(renderPost);
-    } else {
-        posts.filter(p => (p.Category && p.Category.trim()) ? p.Category.trim() === cat : 'GÉNÉRAL' === cat)
-             .forEach(renderPost);
+    
+    // Gérer le clic sur "À propos..."
+    if (cat === 'ABOUT') {
+        $('#categoryMenu').fadeOut(100);
+        showAboutModal();
+        return;
     }
+    
+    // Si on reclique sur la catégorie déjà sélectionnée, la désélectionner
+    if (selectedCategory === cat) {
+        selectedCategory = 'TOUT';
+        $('#categoryMenu').fadeOut(100);
+        
+        // Réinitialiser la recherche si active
+        currentSearchWords = [];
+        $('#mainSearchInput').val('');
+        $('#searchBarContainer').slideUp(180);
+        
+        // Réactiver le défilement infini et charger tous les posts
+        loadPosts(true);
+        setupInfiniteScroll();
+        return;
+    }
+    
+    // Mettre à jour la catégorie sélectionnée
+    selectedCategory = cat;
+    
+    $('#categoryMenu').fadeOut(100);
+    
+    // Réinitialiser la recherche si active
+    currentSearchWords = [];
+    $('#mainSearchInput').val('');
+    $('#searchBarContainer').slideUp(180);
+    
+    // Désactiver le défilement infini pendant le filtrage
+    stopInfiniteScroll();
+    
+    // Filtrer et afficher les posts
+    await filterPostsByCategory(cat);
 });
+
+// Charger tous les posts pour extraire les catégories disponibles
+async function loadAllPostsForCategories() {
+    try {
+        // Charger tous les posts sans pagination pour avoir toutes les catégories
+        const allPosts = await API_GetPosts(null, null, null);
+        if (allPosts && allPosts.length > 0) {
+            allPostsForCategories = allPosts;
+            console.log('✅ Catégories chargées depuis', allPosts.length, 'posts');
+        }
+    } catch (error) {
+        console.error('Erreur lors du chargement des catégories:', error);
+        // En cas d'erreur, utiliser les posts déjà chargés
+        allPostsForCategories = [...posts];
+    }
+}
+
+// Afficher la modale À propos
+function showAboutModal() {
+    $('#aboutModal').fadeIn(200);
+}
+
+// Masquer la modale À propos
+function hideAboutModal() {
+    $('#aboutModal').fadeOut(200);
+}
+
+// Fonction pour filtrer les posts par catégorie
+async function filterPostsByCategory(category) {
+    $('#postsContainer').empty();
+    $('#loadingContainer').show();
+    
+    try {
+        // Charger tous les posts de la catégorie depuis le serveur (sans pagination)
+        const allPosts = await API_GetPosts(null, null, category);
+        
+        $('#loadingContainer').hide();
+        
+        if (allPosts && allPosts.length > 0) {
+            // Le serveur a déjà trié les posts, mais on s'assure du tri côté client aussi
+            const sortedPosts = [...allPosts].sort((a, b) => {
+                const dateA = a.Creation || 0;
+                const dateB = b.Creation || 0;
+                return dateB - dateA;
+            });
+            
+            // Mettre à jour le tableau posts avec tous les posts filtrés
+            posts = sortedPosts;
+            
+            // Ne pas mettre à jour allPostsForCategories ici car on veut garder toutes les catégories
+            
+            // Afficher tous les posts filtrés
+            sortedPosts.forEach(post => renderPost(post));
+        } else {
+            showEmptyState();
+        }
+    } catch (error) {
+        $('#loadingContainer').hide();
+        console.error('Erreur lors du filtrage par catégorie:', error);
+        alert('Erreur lors du chargement des posts de cette catégorie.');
+    }
+}
 
 function showSearchForm() {
     $('#postsContainer').empty().append(`
@@ -1275,9 +1458,13 @@ function showSearchForm() {
 
 
 $('#closeSearchBtn').on('click', function() {
-    $('#searchBarContainer').slideUp(180);
-    $('#mainSearchInput').val('');
-    showListView();
+    // Fermer la barre de recherche mais garder les mots en mémoire
+    $('#searchBarContainer').slideUp(180, function() {
+        $(this).css('display', 'none');
+    });
+    $('#mainSearchInput').blur();
+    // NE PAS vider le champ ni réinitialiser currentSearchWords
+    // Le filtre reste actif et les posts restent surlignés
 });
 
 let currentSearchWords = []; 
@@ -1285,12 +1472,14 @@ let currentSearchWords = [];
 $('#searchBtn').off('click').on('click', function() {
     if ($('#searchBarContainer').is(':visible')) {
         // Barre ouverte : la fermer mais garder le filtre actif
-        $('#searchBarContainer').slideUp(180);
+        $('#searchBarContainer').slideUp(180, function() {
+            $(this).css('display', 'none');
+        });
         $('#mainSearchInput').blur();
         // NE PAS appeler showListView() ici
     } else {
         // Barre fermée : l'ouvrir et remettre les mots recherchés si besoin
-        $('#searchBarContainer').slideDown(180);
+        $('#searchBarContainer').css('display', 'flex').hide().slideDown(180);
         $('#mainSearchInput').focus();
         if (currentSearchWords.length > 0) {
             $('#mainSearchInput').val(currentSearchWords.join(' '));
@@ -1298,22 +1487,13 @@ $('#searchBtn').off('click').on('click', function() {
     }
 });
 
-function triggerMainSearch() {
-    const search = $('#mainSearchInput').val();
-    if (!search || !search.trim()) return;
-
-    currentSearchWords = search.trim().toLowerCase().split(/\s+/);
-
-    function highlightWords(text, words) {
-        if (!text) return '';
-        let result = text;
-        words.forEach(word => {
-            if (word.length > 0) {
-                const regex = new RegExp(`(${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-                result = result.replace(regex, '<span class="highlight-search">$1</span>');
-            }
-        });
-        return result;
+// Fonction pour appliquer le filtre de recherche avec surlignage
+function applySearchFilter() {
+    if (!currentSearchWords || currentSearchWords.length === 0) {
+        // Pas de recherche active, charger tous les posts normalement
+        loadPosts(true);
+        setupInfiniteScroll();
+        return;
     }
 
     const filtered = posts.filter(post => {
@@ -1321,22 +1501,17 @@ function triggerMainSearch() {
         return currentSearchWords.every(word => content.includes(word));
     });
 
+    // Trier les résultats par date de création décroissante
+    filtered.sort((a, b) => {
+        const dateA = a.Creation || 0;
+        const dateB = b.Creation || 0;
+        return dateB - dateA; // Ordre décroissant
+    });
+
     $('#postsContainer').empty();
     if (filtered.length > 0) {
-        filtered.forEach(post => {
-            const highlightedTitle = highlightWords(escapeHtml(post.Title || ''), currentSearchWords);
-            const highlightedText = highlightWords(escapeHtml(post.Text || ''), currentSearchWords);
-            const postHtml = `
-                <div class="post-article" data-post-id="${escapeHtml(post.Id)}">
-                    <div class="post-category">${escapeHtml(post.Category || 'GÉNÉRAL')}</div>
-                    <h2 class="post-title">${highlightedTitle}</h2>
-                    ${post.Image ? `<img src="${post.Image}" alt="${escapeHtml(post.Title)}" class="post-image" onerror="this.style.display='none'">` : ''}
-                    <div class="post-date">${post.Creation ? convertToFrenchDate(post.Creation) : ''}</div>
-                    <div class="post-text">${highlightedText}</div>
-                </div>
-            `;
-            $('#postsContainer').append(postHtml);
-        });
+        // Utiliser renderPost qui surligne automatiquement
+        filtered.forEach(post => renderPost(post));
     } else {
         $('#postsContainer').append(`
             <div class="empty-state">
@@ -1345,4 +1520,21 @@ function triggerMainSearch() {
             </div>
         `);
     }
+}
+
+function triggerMainSearch() {
+    const search = $('#mainSearchInput').val();
+    if (!search || !search.trim()) {
+        // Si le champ est vide, réinitialiser la recherche
+        currentSearchWords = [];
+        loadPosts(true);
+        setupInfiniteScroll();
+        return;
+    }
+
+    // Sauvegarder les mots recherchés
+    currentSearchWords = search.trim().toLowerCase().split(/\s+/);
+    
+    // Appliquer le filtre avec surlignage
+    applySearchFilter();
 }

@@ -10,12 +10,27 @@ function API_getCurrentETag() {
     return currentETag;
 }
 
-function API_GetPosts(limit = null, offset = null) {
+function API_GetPosts(limit = null, offset = null, category = null) {
     return new Promise(resolve => {
         let url = API_URL;
+        let params = [];
+        
+        // Ajouter le filtre de catégorie si fourni
+        if (category && category !== 'TOUT') {
+            params.push(`Category=${encodeURIComponent(category)}`);
+        }
+        
         // Ajouter les paramètres de pagination si fournis
         if (limit !== null && offset !== null) {
-            url += `?limit=${limit}&offset=${offset}`;
+            params.push(`limit=${limit}`);
+            params.push(`offset=${offset}`);
+        }
+        
+        // Toujours trier par date décroissante
+        params.push('sort=-Creation');
+        
+        if (params.length > 0) {
+            url += '?' + params.join('&');
         }
         
         $.ajax({

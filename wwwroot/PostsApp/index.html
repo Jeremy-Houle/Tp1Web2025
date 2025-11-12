@@ -25,11 +25,10 @@
                 <i class="header-icon fa fa-ellipsis-vertical" id="menuBtn" title="Menu"></i>
             </div>
         </div>
-        <div id="searchBarContainer"
-            style="display:none;align-items:center;gap:8px; padding:10px 16px; background:#fff; border-bottom:1px solid #e0e0e0;">
+        <div id="searchBarContainer" class="search-bar-container">
             <input type="text" id="mainSearchInput" class="form-control search-bar-input"
-                placeholder="Rechercher des mots..." />
-            <button id="closeSearchBtn" class="form-action-btn search-close-btn" title="Fermer la recherche">&times;</button>
+                placeholder="Rechercher des mots...">
+            <button type="button" id="closeSearchBtn" class="form-action-btn search-close-btn" title="Fermer la recherche">&times;</button>
         </div>
         <div id="content">
             <div class="waitingGifcontainer" id="loadingContainer">
@@ -139,6 +138,33 @@
             </div>
         </div>
     </div>
+
+    <!-- Modal À propos -->
+    <div id="aboutModal" class="about-modal">
+        <div class="about-modal-content">
+            <div class="about-modal-header">
+                <div class="about-header-left">
+                    <i class="fa fa-user about-person-icon"></i>
+                    <span class="about-title">À propos...</span>
+                </div>
+                <div class="about-header-right">
+                    <i class="fa fa-times about-close-btn" id="aboutCloseBtn"></i>
+                    <i class="fa fa-ellipsis-vertical about-menu-btn"></i>
+                </div>
+            </div>
+            <div class="about-modal-body">
+                <h1 class="about-app-title">Fil de nouvelles</h1>
+                <p class="about-description">
+                    Petite application de gestion de nouvelles d'interface utilisateur monopage réactive.
+                </p>
+                <div class="about-info">
+                    <p><strong>Auteur:</strong> Jérémy Houle</p>
+                    <p><strong>Collège Lionel-Groulx, automne 2025</strong></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
     <script src="js/dateUtilities.js"></script>
     <script src="js/API_Posts.js"></script>
