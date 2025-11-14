@@ -107,11 +107,11 @@ export const decomposePath = (url) => {
             action = 'index';
 
         if (urlParts[3] != undefined) {
-            id = decodeURIComponent(urlParts[3]); // Décoder l'ID pour gérer les UUID et autres caractères spéciaux
+            id = decodeURIComponent(urlParts[3]); 
         }
     } else {
         if (urlParts[2] != undefined) {
-            id = decodeURIComponent(urlParts[2]); // Décoder l'ID pour gérer les UUID et autres caractères spéciaux
+            id = decodeURIComponent(urlParts[2]); 
         }
     }
     return { isAPI, model, controllerName, action, id, queryString, params };

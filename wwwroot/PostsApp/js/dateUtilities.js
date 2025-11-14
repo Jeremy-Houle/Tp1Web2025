@@ -1,5 +1,5 @@
 function convertToFrenchDate(numeric_date) {
-    // numeric_date est en secondes (timestamp Unix)
+   
     date = new Date(numeric_date * 1000);
     var options = { year: 'numeric', month: 'long', day: 'numeric' };
     var opt_weekday = { weekday: 'long' };
@@ -15,7 +15,6 @@ function convertToFrenchDate(numeric_date) {
     }
     return weekday + " le " + date.toLocaleDateString("fr-FR", options) + " @ " + date.toLocaleTimeString("fr-FR");
 }
-
 function UTC_To_Local(UTC_numeric_date) {
     let UTC_Offset = new Date().getTimezoneOffset() / 60;
     let UTC_Date = new Date(UTC_numeric_date);

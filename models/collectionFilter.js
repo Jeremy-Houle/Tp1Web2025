@@ -33,9 +33,6 @@
 // 2025
 /////////////////////////////////////////////////////////////////////
 import * as utilities from '../utilities.js';
-// http://localhost:5000/api/contacts?fields=Name
-// http://localhost:5000/api/bookmarks?fields=Category&limit=4&offset=1
-// http://localhost:5000/api/bookmarks?fields=Category,Title&limit=3&offset=1&Category=c*&sort=Category,-Title
 // http://localhost:5000/api/words?sort=-Val
 // http://localhost:5000/api/words?sort=Val&limit=5&offset=20&Val=*z&fields=Val,Def,Gen
 // http://localhost:5000/api/Hurricanes?sort=-Year&limit=3&offset=0

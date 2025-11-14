@@ -1,3 +1,9 @@
 {
-    "liveServer.settings.port": 5501
+    "liveServer.settings.port": 5501,
+    "appService.zipIgnorePattern": [
+        "node_modules{,/**}",
+        ".vscode{,/**}"
+    ],
+    "appService.defaultWebAppToDeploy": "/subscriptions/38af6f31-e8a2-40a8-88dd-59c5c3df70c0/resourceGroups/Web-TP1-2025/providers/Microsoft.Web/sites/newManager",
+    "appService.deploySubpath": "."
 }
