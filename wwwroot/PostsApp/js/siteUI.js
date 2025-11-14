@@ -1202,9 +1202,10 @@ $('#closeSearchBtn').on('click', function() {
     $('#searchBarContainer').slideUp(180, function() {
         $(this).css('display', 'none');
     });
-    $('#mainSearchInput').blur();
+    $('#mainSearchInput').val('');
+    currentSearchWords = [];
+    showListView(); // Affiche tous les posts sans filtre ni surbrillance
 });
-
 let currentSearchWords = []; 
 
 $('#searchBtn').off('click').on('click', function() {
